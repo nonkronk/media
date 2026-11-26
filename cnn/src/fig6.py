@@ -9,10 +9,11 @@ total = sum(P); print(P, total)
 assert total == 617860 and 8*8*128 == 8192
 
 PITCH = 22.0
-W, H = 2 + 5 * PITCH + 2, 82
+W, H = 2 + 5 * PITCH + 2 + 16, 82
 fig, ax = new_fig(W, H)
 CONV = ('#cfe2fa', '#e8f1fd', '#9fc2ee'); POOL = ('#fde9a8', '#fff4d1', '#f1d06a')
-photo = transform.resize(data.chelsea()[18:274, 96:352], (96, 96), anti_aliasing=True)
+from PIL import Image
+photo = np.asarray(Image.open('/tmp/leaf/lb8.jpg').convert('RGB').resize((64, 64), Image.LANCZOS)) / 255.0
 rng = np.random.RandomState(3)
 FS_NAME, FS_SHAPE, FS_PAR = 16, 14.5, 13.5
 
@@ -39,9 +40,16 @@ def stage(col, yc, kind, h, d, name, shape, par):
         ax.add_patch(Rectangle((cx - fw/2, yc - fh/2), fw, fh, fill=False, ec=INK, lw=1.1, zorder=4))
         half = fw / 2
     else:   # circles
-        n, span = (7, 18) if kind == 'fc' else (4, 7.0)
-        for yy in np.linspace(yc + span/2, yc - span/2, n):
-            ax.add_patch(Circle((cx, yy), 1.45, fc='#dff3e6', ec=INK, lw=1.1, zorder=3))
+        n, span = (7, 18) if kind == 'fc' else (4, 10.5)
+        classes = [('Healthy', 0.03), ('Early blight', 0.23), ('Late blight', 0.64), ('Leaf mold', 0.10)]
+        for k, yy in enumerate(np.linspace(yc + span/2, yc - span/2, n)):
+            top = kind == 'out' and k == 2
+            ax.add_patch(Circle((cx, yy), 1.45, fc=(BLUE if top else '#dff3e6'), ec=INK, lw=1.1, zorder=3))
+            if kind == 'out':
+                nm_, p_ = classes[k]
+                fw_ = 'bold' if top else 'normal'
+                ax.text(cx + 2.8, yy, nm_, ha='left', va='center', fontsize=14, color=INK, fontweight=fw_)
+                ax.text(cx + 2.8 + 13.2, yy, f'{p_:.2f}', ha='left', va='center', fontsize=14, color=INK, fontweight=fw_)
         half = 1.45
     ax.text(cx, yc - 16.9, name, ha='center', va='bottom', fontsize=FS_NAME, color=INK, linespacing=1.1)
     ax.text(cx, yc - 17.6, shape, ha='center', va='top', fontsize=FS_SHAPE, color=INK, fontweight='bold')
@@ -53,11 +61,11 @@ def arrow(a, b, yc):
     ax.add_patch(FancyArrowPatch((a, yc), (b, yc), arrowstyle='-|>', mutation_scale=13, color=GREY, lw=1.4, zorder=2, shrinkA=0, shrinkB=0))
 
 y1, y2 = 70.0, 30.0
-row1 = [('in', 15, 1.2, 'Input', '64 × 64 × 3', None), ('conv', 15, 3.6, 'Conv 1\n+ ReLU', '64 × 64 × 32', P[0]),
+row1 = [('in', 15, 1.2, 'Input\nleaf photo', '64 × 64 × 3', None), ('conv', 15, 3.6, 'Conv 1\n+ ReLU', '64 × 64 × 32', P[0]),
         ('pool', 10.5, 3.6, 'Max\npooling', '32 × 32 × 32', None), ('conv', 10.5, 6.0, 'Conv 2\n+ ReLU', '32 × 32 × 64', P[1]),
         ('pool', 7.5, 6.0, 'Max\npooling', '16 × 16 × 64', None)]
 row2 = [('conv', 7.5, 9.5, 'Conv 3\n+ ReLU', '16 × 16 × 128', P[2]), ('pool', 5.2, 9.5, 'Max\npooling', '8 × 8 × 128', None),
-        ('flat', 0, 0, 'Flatten', '8,192', None), ('fc', 0, 0, 'Fully connected\n+ ReLU', '64', P[3]), ('out', 0, 0, 'Output\n+ softmax', '4', P[4])]
+        ('flat', 0, 0, 'Flatten', '8,192', None), ('fc', 0, 0, 'Fully connected\n+ ReLU', '64', P[3]), ('out', 0, 0, 'Output\n+ softmax', '4 classes', P[4])]
 pos = []
 for rown, (yc, rows) in enumerate(((y1, row1), (y2, row2))):
     prev = None
